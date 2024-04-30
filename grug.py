@@ -6,6 +6,9 @@ from datetime import datetime
 import json
 import requests
 import time
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
 
 from groq import Groq, RateLimitError
 from tavily import TavilyClient
