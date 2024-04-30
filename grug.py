@@ -84,8 +84,12 @@ def opus_orchestrator(objective, file_content=None, previous_results=None, use_s
     god_rating = rate_with_god_model(opus_response)
     console.print(Panel(f"Orchestrator output rated by GOD_MODEL: {god_rating}", title="[bold green]GOD_MODEL Rating[/bold green]", title_align="left", border_style="green"))
     
-    # Extract the numeric rating from the GOD_MODEL response
-    rating_value = int(god_rating.split(':')[-1].strip())
+    try:
+        # Extract the numeric rating from the GOD_MODEL response
+        rating_value = int(god_rating.split(':')[-1].strip())
+    except ValueError:
+        console.print(Panel("Failed to extract a valid integer rating. Defaulting to rating of 0.", title="[bold red]Rating Extraction Error[/bold red]", title_align="left", border_style="red"))
+        rating_value = 0
     
     # Check if the rating is 8 or higher
     if rating_value >= 8:
@@ -219,7 +223,7 @@ def search_query(query):
         "include_raw_content": True,
         "max_results": 10
     }
-    headers = {"Authorization": f"Bearer {tavily_client.api_key}"}
+    headers = {"Authorization": f"Bearer {tavily_client.api_key}", "Content-Type": "application/json"}
     try:
         response = requests.post('https://api.tavily.com/search', json=search_params, headers=headers)
         response.raise_for_status()  # Raises an HTTPError for bad requests
@@ -227,7 +231,7 @@ def search_query(query):
         console.print(Panel(f"Search query successful, received data.", title="[bold green]Search Success[/bold green]", title_align="left", border_style="green"))
         return data
     except requests.exceptions.HTTPError as e:
-        console.print(Panel(f"HTTP Error occurred: [bold]{e.response.status_code} - {e.response.reason}[/bold]", title="[bold red]Search Error[/bold red]", title_align="left", border_style="red"))
+        console.print(Panel(f"HTTP Error occurred: [bold]{e.response.status_code} - {e.response.reason}[/bold]\nRequest data: {search_params}\nHeaders: {headers}", title="[bold red]Search Error[/bold red]", title_align="left", border_style="red"))
         return None  # Return None or handle as appropriate
     except Exception as e:
         console.print(Panel(f"An error occurred: [bold]{str(e)}[/bold]", title="[bold red]Search Exception[/bold red]", title_align="left", border_style="red"))
@@ -340,7 +344,7 @@ def search_query(query):
         console.print(Panel(f"Search query successful, received data.", title="[bold green]Search Success[/bold green]", title_align="left", border_style="green"))
         return data
     except requests.exceptions.HTTPError as e:
-        console.print(Panel(f"HTTP Error occurred: [bold]{e.response.status_code} - {e.response.reason}[/bold]\nRequest data: {search_params}\nHeaders: {headers}", title="[bold red]Search Error[/bold red]", title_align="left", border_style="red"))
+        console.print(Panel(f"HTTP Error occurred: [bold]{e.response.status_code} - {e.response.reason}[/bold]", title="[bold red]Search Error[/bold red]", title_align="left", border_style="red"))
         return None  # Return None or handle as appropriate
     except Exception as e:
         console.print(Panel(f"An error occurred: [bold]{str(e)}[/bold]", title="[bold red]Search Exception[/bold red]", title_align="left", border_style="red"))
@@ -352,6 +356,7 @@ def process_search_results(search_results):
     results = search_results['results']
     processed_results = "\n".join(f"Title: {result['title']}, URL: {result['url']}" for result in results)
     return processed_results    
+
 def main_logic(objective, project_directory):
     enable_search = input("Do you want to enable Tavily search? (yes/no): ")
     use_search = enable_search.lower() == 'yes'
@@ -495,7 +500,8 @@ def rate_with_god_model(data):
         rating_text = god_response.choices[0].message.content.strip()
         # Directly use the response assuming it's in the correct format 'Rating: X'
         if "Rating:" in rating_text:
-            return rating_text
+            rating = int(rating_text.split(':')[-1].strip())  # Extract and convert the rating
+            return f"Rating: {rating}"
         else:
             console.print(Panel(f"Model did not return the rating in the expected format: {rating_text}", title="[bold red]Rating Format Error[/bold red]", title_align="left", border_style="red"))
             return "Rating: 0"  # Return a default rating if the format is incorrect
